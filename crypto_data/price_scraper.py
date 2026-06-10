@@ -1,71 +1,79 @@
 import ccxt
 import pandas as pd
 import time
-from datetime import datetime
+import sys
 
-# --- CONFIGURAZIONE ---
-symbol = 'BTC/USDT'
-timeframe = '15m'
-# Data di inizio: Anno-Mese-Giorno Ore:Minuti:Secondi
-start_date = "2018-01-01 00:00:00"
-filename = 'btc_2018_2026_M15.csv'
+def download_data(symbol, timeframe, start_date, filename, exchange_id='binance'):
+    if exchange_id == 'binance':
+        exchange = ccxt.binance()
+    elif exchange_id == 'bybit':
+        exchange = ccxt.bybit()
+    else:
+        raise ValueError(f"Unsupported exchange: {exchange_id}")
 
-exchange = ccxt.binance()
+    since = exchange.parse8601(start_date)
 
-# Convertiamo la data di inizio in "timestamp milliseconds" (la lingua di Binance)
-# parse8601 è una funzione magica di ccxt che trasforma la stringa in numero
-since = exchange.parse8601(start_date)
+    all_candles = []
+    batch_count = 0
 
-all_candles = []  # Qui accumuleremo tutti i pezzi
-batch_count = 0   # Solo per contare quante richieste facciamo
+    print(f"Downloading {symbol} from {start_date} to present from {exchange_id}...")
 
-print(f"--- Inizio scaricamento {symbol} dal {start_date} ad oggi ---")
+    while True:
+        try:
+            print(f"Batch {batch_count + 1} (from {exchange.iso8601(since)})...")
 
-while True:
-    try:
-        # 1. Scarichiamo 1000 candele a partire da 'since'
-        print(f"Scaricando batch {batch_count + 1}... (Partenza: {exchange.iso8601(since)})")
-        
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe, since=since, limit=1000)
-        
-        # 2. SE LA LISTA È VUOTA, abbiamo finito (siamo arrivati a oggi)
-        if len(ohlcv) == 0:
-            print("Nessun altro dato trovato. Fine scaricamento.")
-            break
-        
-        # 3. Aggiungiamo i dati trovati alla lista gigante
-        all_candles.extend(ohlcv)
-        
-        # 4. AGGIORNIAMO IL PUNTO DI PARTENZA
-        # Prendiamo il timestamp dell'ultima candela scaricata + 1 minuto (60000 ms)
-        # Così la prossima richiesta parte esattamente dal minuto successivo
-        last_candle_timestamp = ohlcv[-1][0]
-        since = last_candle_timestamp + 60000 
-        
-        batch_count += 1
-        
-        # Check di sicurezza: se abbiamo superato "adesso", fermiamoci
-        now = exchange.milliseconds()
-        if since > now:
-            print("Raggiunto il presente.")
-            break
-            
-        # 5. PAUSA ANTIBAN (Rate Limiting)
-        # Binance è generosa, ma un piccolo riposino evita errori 429 (Too Many Requests)
-        time.sleep(0.5) # Mezzo secondo di pausa
-        
-    except Exception as e:
-        print(f"Errore: {e}")
-        print("Provo a ripartire tra 5 secondi...")
-        time.sleep(5)
+            ohlcv = exchange.fetch_ohlcv(symbol, timeframe, since=since, limit=1000)
 
-# --- SALVATAGGIO ---
-print(f"Scaricamento completato! Totale candele: {len(all_candles)}")
-print("Elaborazione e salvataggio in corso...")
+            if len(ohlcv) == 0:
+                print("No more data. Download complete.")
+                break
 
-df = pd.DataFrame(all_candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+            all_candles.extend(ohlcv)
 
-# Salviamo
-df.to_csv(filename, index=False)
-print(f"Fatto! File salvato come: {filename}")
+            # Advance past the last fetched candle to avoid a duplicate on the next request.
+            # Use the timeframe to calculate the next since if ohlcv is empty, 
+            # but here it's already handled by the break.
+            since = ohlcv[-1][0] + 1
+            batch_count += 1
+
+            if since > exchange.milliseconds():
+                print("Reached the present.")
+                break
+
+            time.sleep(0.5)
+
+        except Exception as e:
+            print(f"Error: {e}")
+            print("Retrying in 5 seconds...")
+            time.sleep(5)
+
+    if not all_candles:
+        print(f"No candles downloaded for {symbol}")
+        return
+
+    print(f"Download complete. Total candles: {len(all_candles)}")
+
+    df = pd.DataFrame(all_candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+    df.to_csv(filename, index=False)
+    print(f"Saved as: {filename}")
+
+if __name__ == "__main__":
+    # Default behavior (backward compatible)
+    symbol = 'BTC/USDT'
+    timeframe = '15m'
+    start_date = "2018-01-01 00:00:00"
+    filename = 'btc_2018_2026_M15.csv'
+    
+    # If arguments are provided, use them
+    if len(sys.argv) > 1:
+        # Simple arg parsing for this specific task
+        # Usage: python price_scraper.py <symbol> <timeframe> <start_date> <filename> [exchange_id]
+        symbol = sys.argv[1]
+        timeframe = sys.argv[2]
+        start_date = sys.argv[3]
+        filename = sys.argv[4]
+        exchange_id = sys.argv[5] if len(sys.argv) > 5 else 'binance'
+        download_data(symbol, timeframe, start_date, filename, exchange_id)
+    else:
+        download_data(symbol, timeframe, start_date, filename)

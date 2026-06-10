@@ -1,0 +1,155 @@
+========================================
+TESTING FILE: avax_2020_2026_H4.csv
+========================================
+
+--- Strategy: Normal Koenigsegg ---
+
+--- BACKTEST RESULTS ---
+File:                crypto_data\avax_2020_2026_H4.csv
+Initial Capital:     $1,000,000.00
+Final Capital:       $63,937,957.33
+Net Profit %:        6293.80%
+Max DrawDown %:      57.15%
+Profitable %:        44.05%
+Number of trades:    84
+Average % per trade: 9.47%
+
+--------------------
+--- Strategy: Koenigsegg DC ---
+
+--- BACKTEST RESULTS (DC VERSION) ---
+File:                crypto_data\avax_2020_2026_H4.csv
+Initial Capital:     $1,000,000.00
+Final Capital:       $13,204,810.86
+Net Profit %:        1220.48%
+Max DrawDown %:      48.92%
+Profitable %:        42.86%
+Number of trades:    28
+Average % per trade: 15.05%
+
+
+
+========================================
+TESTING FILE: bnb_2017_2026_H4.csv
+========================================
+
+--- Strategy: Normal Koenigsegg ---
+
+--- BACKTEST RESULTS ---
+File:                crypto_data\bnb_2017_2026_H4.csv
+Initial Capital:     $1,000,000.00
+Final Capital:       $47,273,418.50
+Net Profit %:        4627.34%
+Max DrawDown %:      77.33%
+Profitable %:        43.26%
+Number of trades:    141
+Average % per trade: 5.59%
+
+--------------------
+--- Strategy: Koenigsegg DC ---
+
+--- BACKTEST RESULTS (DC VERSION) ---
+File:                crypto_data\bnb_2017_2026_H4.csv
+Initial Capital:     $1,000,000.00
+Final Capital:       $16,439,922.87
+Net Profit %:        1543.99%
+Max DrawDown %:      38.46%
+Profitable %:        48.08%
+Number of trades:    52
+Average % per trade: 9.91%
+
+
+
+========================================
+TESTING FILE: btc_2017_2026_H4.csv
+========================================
+
+--- Strategy: Normal Koenigsegg ---
+
+--- BACKTEST RESULTS ---
+File:                crypto_data\btc_2017_2026_H4.csv
+Initial Capital:     $1,000,000.00
+Final Capital:       $28,809,739.67
+Net Profit %:        2780.97%
+Max DrawDown %:      42.70%
+Profitable %:        40.30%
+Number of trades:    134
+Average % per trade: 3.20%
+
+--------------------
+--- Strategy: Koenigsegg DC ---
+
+--- BACKTEST RESULTS (DC VERSION) ---
+File:                crypto_data\btc_2017_2026_H4.csv
+Initial Capital:     $1,000,000.00
+Final Capital:       $3,828,698.91
+Net Profit %:        282.87%
+Max DrawDown %:      41.28%
+Profitable %:        50.00%
+Number of trades:    54
+Average % per trade: 3.02%
+
+
+
+========================================
+TESTING FILE: mnt_2023_2026_H4.csv
+========================================
+
+--- Strategy: Normal Koenigsegg ---
+
+--- BACKTEST RESULTS ---
+File:                crypto_data\mnt_2023_2026_H4.csv
+Initial Capital:     $1,000,000.00
+Final Capital:       $4,903,381.62
+Net Profit %:        390.34%
+Max DrawDown %:      37.22%
+Profitable %:        48.84%
+Number of trades:    43
+Average % per trade: 4.59%
+
+--------------------
+--- Strategy: Koenigsegg DC ---
+
+--- BACKTEST RESULTS (DC VERSION) ---
+File:                crypto_data\mnt_2023_2026_H4.csv
+Initial Capital:     $1,000,000.00
+Final Capital:       $929,890.01
+Net Profit %:        -7.01%
+Max DrawDown %:      52.64%
+Profitable %:        40.00%
+Number of trades:    20
+Average % per trade: 0.08%
+
+
+
+========================================
+TESTING FILE: sol_2020_2026_H4.csv
+========================================
+
+--- Strategy: Normal Koenigsegg ---
+
+--- BACKTEST RESULTS ---
+File:                crypto_data\sol_2020_2026_H4.csv
+Initial Capital:     $1,000,000.00
+Final Capital:       $94,257,552.41
+Net Profit %:        9325.76%
+Max DrawDown %:      57.11%
+Profitable %:        46.43%
+Number of trades:    84
+Average % per trade: 8.38%
+
+--------------------
+--- Strategy: Koenigsegg DC ---
+
+--- BACKTEST RESULTS (DC VERSION) ---
+File:                crypto_data\sol_2020_2026_H4.csv
+Initial Capital:     $1,000,000.00
+Final Capital:       $7,070,084.42
+Net Profit %:        607.01%
+Max DrawDown %:      41.05%
+Profitable %:        53.12%
+Number of trades:    32
+Average % per trade: 8.54%
+
+
+
