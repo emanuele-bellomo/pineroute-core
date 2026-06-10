@@ -1,0 +1,7 @@
+ccxt
+fastapi
+uvicorn
+pydantic
+pydantic-settings
+python-dotenv
+requests
