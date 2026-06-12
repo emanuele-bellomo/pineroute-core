@@ -1,4 +1,4 @@
-# UniStrat
+# PineRoute
 
 A Python-based automated trading bridge that connects TradingView PineScript strategy webhooks to cryptocurrency exchanges using the CCXT library.
 
