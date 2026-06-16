@@ -21,9 +21,36 @@
 ## Tech Stack
 
 - **Frontend** = Astro, Tailwind CSS (not open-source)
-- **REST API** = Python FastAPI
-- **Backend** = Python, C (optionally)
+- **Backend (this repo)** = Python, C (optional), Rust (optional)
 - **Database** = PostgreSQL
+
+
+## Rust usage
+
+To introduce Rust into PineRoute to bulletproof the system, there are two primary paths: using Rust as a C-extension replacement inside Python, or using Rust as a standalone microservice.
+
+1. **The Interop Bridge, PyO3**:
+   If you want to write Rust code and call it directly from your Python workers, you will use a framework called PyO3.
+   PyO3 allows you to write native Rust functions, compile them, and import them into Python exactly as if they were standard Python modules (import my_rust_module). The overhead of passing data between the two is nanoseconds. This is exactly how tools like Polars and Pydantic v2 are built.
+
+2. **Where to Inject Rust in PineRoute**: 
+
+   - The "Iron Shield" Ingestion Gateway (Standalone Microservice): Right now, you are using FastAPI and Uvicorn to catch the TradingView webhooks and dump them into Redis. While FastAPI is great, Python web servers can struggle under sudden, massive DDOS-style spikes in traffic (which happens in crypto during flash crashes).
+   The Rust Play: Replace just the FastAPI ingestion layer with a lightweight Rust web server using the Axum or Actix-Web framework.
+   Why? A Rust server can handle tens of thousands of concurrent webhook requests per second with practically zero memory footprint. It will instantly validate the JSON, dump it into your Redis queue, and return a 202 Accepted to TradingView in microseconds. Your Python workers then peacefully pull from Redis without ever touching the public internet.
+   - Cryptographic Validation (PyO3 module):
+   You mentioned handling "cryptographic user token validation." Python's cryptography libraries are fine, but if you have workers constantly decrypting tokens or signing complex exchange payloads, this CPU-bound work blocks Python's async event loop.
+   The Rust Play: Write a small Rust module via PyO3 that handles the heavy math of token decryption and signature hashing. Your Python worker hands the token to Rust, Rust does the math instantly on a separate OS thread, and hands the validated result back to Python.
+   - Future-Proofing: Real-time Data & Orderbooks
+   Right now, PineRoute is a webhook-to-execution pipeline. But if you ever decide to expand PineRoute to maintain local orderbooks via Exchange WebSockets to check prices before routing orders, do not do this in Python.
+   The Rust Play: Managing high-frequency WebSocket streams and maintaining localized orderbook state will crush Python's memory. That is a textbook use case for a Rust module.
+
+3. **Where to LEAVE Python Alone**:
+   Just as important as knowing where to use Rust is knowing where not to use it.
+   Do not touch the CCXT / Worker execution layer. CCXT is a massive, constantly updated library that normalizes the APIs of hundreds of crypto exchanges. The exchanges change their endpoints constantly. Rebuilding CCXT's functionality in Rust would take you years. Let your Python async workers handle the API routing using CCXT. Python is perfectly fine here because this step is I/O bound (waiting for the exchange server to respond over the network), not CPU bound.
+   The Verdict
+   Your tech stack is incredibly solid. By keeping Python as the "steering wheel" for routing (CCXT) and task management (Celery/ARQ), you maintain development speed. By potentially swapping the FastAPI gateway for a Rust microservice, you build an impenetrable, high-performance moat around your database and workers.
+   Since you are dealing with real-time trading, are you expecting user volume high enough that you anticipate facing severe rate-limit bottlenecks from the crypto exchanges, or is your main concern just processing the TradingView webhooks fast enough?
 
 
 ## C usage
@@ -37,7 +64,7 @@
 Use libraries like Cython to get C-level performance without writing in C; also use uvloop instead of asyncio and orjson instead of json libraries for more speed.
 
 
-## Useful GitHub repos (State of the art analysis)
+## Useful GitHub repos ("State of the art" analysis)
 
 - **vlameiras/tradingview-webhook-integration**: * Why it's useful: This project is built using FastAPI, which is exactly what we decided to use for your src/api module. It bridges TradingView to Binance Futures. You can look at their app.py or router files to see exactly how they set up the FastAPI endpoints to receive JSON webhooks and validate them.
 
@@ -79,3 +106,14 @@ Critical Reasoning & Robustness Gaps
 
 **Verdict:** The current code is a helpful "sketch" for understanding the flow, but it is **not safe for real money** as it lacks the robustness required for automated execution.
 
+## Logging Module
+
+Logging is the process of recording events and data during a program's execution to provide an **audit trail** for debugging and monitoring.
+
+The built-in Python logging module allows to categorize messages by severity: **DEBUG, INFO, WARNING, ERROR, CRITICAL**; format them by adding timestamps or line numbers, and route them to various destinations like consoles, files or remote servers.
+
+In this project specifically, they have to provide a record of webhooks from TV, API calls to exchanges, and error details.
+
+The built-in Python logging module is fast enough for most applications, but it's synchronous and can block the execution thread while writing to disk. Though the main bottleneck in this project is network latency.
+
+I'm now actually trying to use the loguru library to see if it's worth changing it up.
