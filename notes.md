@@ -1,3 +1,23 @@
+## Roadmap
+
+- [ ] **Phase 1: Research & Setup**
+    - [x] Initialize Project Structure
+    - [ ] Start Coding (after module 31)
+    - [ ] Study Python Libraries
+- [ ] **Phase 2: Webhook Server**
+    - [ ] Implement endpoint to receive TradingView alerts
+    - [ ] Add basic security (IP filtering or secret tokens)
+- [ ] **Phase 3: Exchange Integration**
+    - [ ] Setup CCXT client
+    - [ ] Implement order execution logic (Market/Limit)
+- [ ] **Phase 4: Monitoring & Logging**
+    - [ ] Implement logging for trades and errors
+    - [ ] Add Telegram/Discord notifications
+- [ ] **Phase 5: Live Testing**
+    - [ ] Test with paper trading/testnet
+    - [ ] Deploy to production
+
+
 ## Tech Stack
 
 - **Frontend** = Astro, Tailwind CSS (not open-source)
@@ -59,21 +79,3 @@ Critical Reasoning & Robustness Gaps
 
 **Verdict:** The current code is a helpful "sketch" for understanding the flow, but it is **not safe for real money** as it lacks the robustness required for automated execution.
 
-
-### Roadmap
-
-- [ ] **Phase 1: Research & Setup**
-    - [ ] Study Python libraries
-    - [ ] Initialize project structure
-- [ ] **Phase 2: Webhook Server**
-    - [ ] Implement endpoint to receive TradingView alerts
-    - [ ] Add basic security (IP filtering or secret tokens)
-- [ ] **Phase 3: Exchange Integration**
-    - [ ] Setup CCXT client
-    - [ ] Implement order execution logic (Market/Limit)
-- [ ] **Phase 4: Monitoring & Logging**
-    - [ ] Implement logging for trades and errors
-    - [ ] Add Telegram/Discord notifications
-- [ ] **Phase 5: Live Testing**
-    - [ ] Test with paper trading/testnet
-    - [ ] Deploy to production
