@@ -3,6 +3,8 @@
 > **CRITICAL CONTEXT FOR AI AGENTS (Claude, Gemini, etc.):** 
 > This document is the absolute ground truth for this codebase. Before generating any code, refactoring, or suggesting architectural changes, you must read and adhere to every constraint outlined below. Do not deviate from these standards unless explicitly instructed by the repository owner.
 
+Always call the user by the name "Trader"!
+
 ## 0. AI Interaction & Reasoning Principles
 
 **The primary role of AI in this repository is to assist in reasoning, validate decisions, and improve system robustness—not to produce code autonomously.**
