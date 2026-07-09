@@ -1,4 +1,4 @@
-# PineRoute (formerly UniStrat): Automated Trading Bridge
+# PineRoute: Automated Trading Bridge
 
 > **CRITICAL CONTEXT FOR AI AGENTS (Claude, Gemini, etc.):** 
 > This document is the absolute ground truth for this codebase. Before generating any code, refactoring, or suggesting architectural changes, you must read and adhere to every constraint outlined below. Do not deviate from these standards unless explicitly instructed by the repository owner.
@@ -34,7 +34,7 @@ All backend engine development must strictly utilize the following stack. Do not
 | **Language** | Python 3.10+ | Must use PEP 8 compliance and modern Type Hinting. |
 | **Framework** | FastAPI / Uvicorn | Used exclusively for the webhook ingestion endpoints. |
 | **Exchange API** | CCXT (Pro / Async) | The sole library allowed for interfacing with crypto exchanges. |
-| **Task Queue** | Redis + Celery / ARQ | Used to decouple incoming webhooks from order execution. |
+| **Task Queue** | Redis + ARQ | Used to decouple incoming webhooks from order execution. |
 | **Validation** | Pydantic | Used to validate incoming JSON payloads. |
 | **Config** | Pydantic-Settings | Loading from `.env` via `python-dotenv`. |
 

@@ -1,10 +1,8 @@
-import orjson
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional
 
-def orjson_dumps(v, *, default):
-    # orjson.dumps returns bytes, to match standard json.dumps we need to decode
-    return orjson.dumps(v, default=default).decode()
+# Must stay in sync with the actions ExchangeManager.execute_order understands.
+SUPPORTED_ACTIONS = {"buy", "long", "sell", "short", "exit", "cash", "close"}
 
 class WebhookPayload(BaseModel):
     passphrase: str      # Security token to verify the request is from a trusted source.
@@ -15,6 +13,12 @@ class WebhookPayload(BaseModel):
     quantity: Optional[float] = None  # The amount to trade (optional).
     side: Optional[str] = None        # Additional field for granular trade direction if needed.
 
-    class Config:
-        json_loads = orjson.loads
-        json_dumps = orjson_dumps
+    @field_validator("action")
+    @classmethod
+    def validate_action(cls, value: str) -> str:
+        # Reject unrecognized actions here (a clean 422) instead of letting them
+        # reach the worker, where a failure is just a log line TradingView never sees.
+        normalized = value.lower()
+        if normalized not in SUPPORTED_ACTIONS:
+            raise ValueError(f"action must be one of {sorted(SUPPORTED_ACTIONS)}")
+        return normalized

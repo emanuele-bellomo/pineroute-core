@@ -5,6 +5,7 @@ pydantic
 pydantic-settings
 python-dotenv
 requests
-#uvloop (currently not supported on windows)
 orjson
 loguru
+arq
+redis

@@ -1,9 +1,41 @@
+# Architecture & Codebase Notes
+
+## Directory & File Structure
+I structured the project this way to keep the execution layer decoupled from the API layer, following standard FastAPI best practices.
+
+*   **`src/main.py`**: The entry point. I put the FastAPI app instantiation, logging setup, and Redis pool connection here so that the app starts up fully configured before accepting any requests.
+*   **`src/api/`**: Contains everything related to the web endpoints. I named it `api` because it acts as the outer shell receiving HTTP traffic.
+    *   **`webhooks.py`**: I created this to handle the `/webhook` route specifically. It validates the request and immediately pushes the data to the background queue so TradingView doesn't time out waiting for the exchange.
+    *   **`dependencies.py`**: I put my FastAPI dependency functions here (like `verify_passphrase`). It makes the router clean and allows me to easily reuse security checks across multiple endpoints in the future.
+*   **`src/core/`**: The brain of the application's configuration and base rules.
+    *   **`config.py`**: Handles environment variables. I used this centralized file so the rest of my code just imports `settings` without worrying about reading `.env` files or parsing types directly.
+    *   **`exceptions.py`**: I defined custom error classes here (like `OrderExecutionError`) so I can gracefully handle and distinguish between different types of failures (e.g., a network error vs a bad signal).
+*   **`src/models/`**: Defines the shape of the data flowing through the app.
+    *   **`schemas.py`**: Contains the Pydantic models (like `WebhookPayload`). I named it schemas because it defines the exact JSON schema TradingView is allowed to send. If they send bad data, Pydantic rejects it automatically here.
+*   **`src/services/`**: The business logic that actually does the heavy lifting.
+    *   **`exchange.py`**: I named this `exchange` because it manages the connection to Binance/Kraken. I wrapped the `ccxt` library in an `ExchangeManager` class here to encapsulate all the complex exchange interactions (like paper trading modes and async execution).
+*   **`src/workers/`**: The background task processing layer.
+    *   **`queue.py`**: I put the ARQ worker settings here. This file is responsible for popping the webhook data off the Redis queue and triggering the `ExchangeManager`.
+
+## Dependencies Used
+
+Here is why I chose the specific libraries in my environment:
+
+*   **`fastapi` & `uvicorn`**: I used these to build the web server because they are incredibly fast and natively support asynchronous code, which is critical since network lag is my main bottleneck.
+*   **`pydantic` & `pydantic-settings`**: I used Pydantic to strictly validate the incoming JSON from TradingView, and Pydantic-Settings to securely load and type-check my `.env` API keys.
+*   **`ccxt` (`ccxt.async_support`)**: I added this to connect to the exchanges. I explicitly used the async version so that placing an order doesn't block the rest of the application.
+*   **`arq` & `redis`**: I chose ARQ over Celery because it's built specifically for `asyncio` and Redis. I used this to create a task queue, ensuring that if multiple webhooks arrive at once, they are queued up and processed safely without race conditions.
+*   **`orjson`**: I swapped out the standard `json` library for this one in my Pydantic models because it is written in Rust and parses incoming webhooks significantly faster.
+*   **`loguru`**: I replaced the standard Python `logging` module with Loguru because it handles asynchronous logging beautifully and gives me much clearer, colorized terminal output out of the box.
+*   **`typing` (Built-in)**: I used `Dict`, `Any`, and `Optional` everywhere to add strict type hints, which helps me catch bugs in my IDE before I even run the code.
+*   **`sys` (Built-in)**: I used this in `main.py` simply to tell Loguru to output my logs directly to the standard console output (`sys.stdout`).
+
+---
+
 ## Roadmap
 
-- [ ] **Phase 1: Research & Setup**
+- [x] **Phase 1: Research & Setup**
     - [x] Initialize Project Structure
-    - [ ] Start Coding 
-    - [ ] Study Python Libraries
 - [ ] **Phase 2: Webhook Server**
     - [ ] Implement endpoint to receive TradingView alerts
     - [ ] Add basic security (IP filtering or secret tokens)
@@ -18,54 +50,18 @@
     - [ ] Deploy to production
 
 
-## Tech Stack
-
-- **Frontend** = Svelte, Tailwind CSS (not open-source)
-- **Backend (this repo)** = Python
-- **Database** = PostgreSQL
-
-
 ## Useful GitHub repos ("State of the art" analysis)
 
-- **vlameiras/tradingview-webhook-integration**: * Why it's useful: This project is built using FastAPI, which is exactly what we decided to use for your src/api module. It bridges TradingView to Binance Futures. You can look at their app.py or router files to see exactly how they set up the FastAPI endpoints to receive JSON webhooks and validate them.
+- **vlameiras/tradingview-webhook-integration**: * Why it's useful: This project is built using FastAPI. It bridges TradingView to Binance Futures. You can look at their app.py or router files to see exactly how they set up the FastAPI endpoints to receive JSON webhooks and validate them.
 
-- **51bitquant/binance-tradingview-webhook-bot**: Why it's useful: A very popular bare-bones Python bot for Binance. While it uses Flask instead of FastAPI, it is a great reference for how to structure your .env loading, handle TradingView alert messages, and format the immediate market order execution logic.
+- **51bitquant/binance-tradingview-webhook-bot**: Why it's useful: A very popular bare-bones Python bot for Binance. While it uses Flask instead of FastAPI, it is a great reference for how to structure the .env loading, handle TradingView alert messages, and format the immediate market order execution logic.
 
-- **freqtrade/freqtrade**: * Why it's useful: This is arguably the most famous open-source crypto trading bot in the world. It is written in Python and uses CCXT extensively. You shouldn't try to copy their entire architecture (it's massive), but you should absolutely dig into their codebase to see how they wrap CCXT API calls in try-except blocks, how they handle rate limits (RateLimitExceeded exceptions), and how they calculate position sizing safely.
+- **freqtrade/freqtrade**: * Why it's useful: This is arguably the most famous open-source crypto trading bot in the world. It is written in Python and uses CCXT extensively. The architecture is massive, but it's worth digging into their codebase to see how they wrap CCXT API calls in try-except blocks, how they handle rate limits (RateLimitExceeded exceptions), and how they calculate position sizing safely.
 
 - **marketcalls/openalgo**: Why it's useful: This is a comprehensive open-source algo trading platform that includes built-in webhook triggers for TradingView. It has order approval workflows, separate database isolation, and Telegram notifications. It's a great place to see how a "Dashboard/SaaS" layout is structured alongside a trading engine.
 
 - **ccxt/ccxt (Examples Folder)**: Why it's useful: The official CCXT repository has a dedicated folder just for Python examples. Before you ask an AI or write your own code to place a "Limit Buy" or a "Stop Loss" order, look here. They have hundreds of short, highly optimized scripts showing exactly how to use ccxt.async_support properly.
 
-
-## Libraries in `requirements.txt`
-
-*   **`ccxt`**: The backbone of the execution layer. It provides a unified way to connect to and trade on over 100 cryptocurrency exchanges.
-*   **`fastapi` & `uvicorn`**: These form the web server. `fastapi` handles the incoming webhook requests from TradingView, and `uvicorn` is the high-performance server that runs the code.
-*   **`pydantic` & `pydantic-settings`**: Used for data integrity. `pydantic` ensures the incoming JSON from TradingView follows a strict format, while `pydantic-settings` manages your sensitive configuration (like API keys) safely.
-*   **`python-dotenv`**: A utility to load environment variables from a `.env` file into your application.
-*   **`requests`**: A standard library for making HTTP requests. *Note: Since your standards require asynchronous execution, this library should likely be replaced by `httpx` or `aiohttp` to avoid blocking the system.
-*   **`uvloop`**: This is a drop-in replacement for Python's default asyncio event loop. It is written in Cython (C) and makes Python's asynchronous networking almost as fast as Go or Node.js.
-*   **`orjson`**: Instead of Python's built-in json library, use orjson (written in Rust). It parses incoming TradingView webhooks exponentially faster.
-
-
-## Initial code generated by AI
-
-*   **`app.py` (The Gatekeeper)**: This is the entry point. It sets up an API endpoint (`/webhook`) that listens for signals. It performs a basic "passphrase" check to ensure only your TradingView signals can trigger trades.
-*   **`models.py` (The Blueprint)**: Defines exactly what a "Signal" looks like. It expects fields like `strategy`, `action` (buy/sell), `symbol`, and `quantity`. If TradingView sends something different, the system will reject it immediately.
-*   **`config.py` (The Vault)**: Centralizes all settings. It pulls your API keys and the "Paper Trading" toggle from the environment, ensuring the rest of the code doesn't have to deal with raw secrets.
-*   **`exchange.py` (The Executor)**: This is where the bridge meets the market. It initializes the `ccxt` connection and contains a placeholder function (`execute_order`) meant to translate a "Long" signal into a real exchange order.
-
-Critical Reasoning & Robustness Gaps
-*As your critical thinking partner, I’ve identified several high-risk areas in this AI-generated code that violate your new AI Standards:*
-
-1.  **Synchronous Bottleneck**: The code currently uses synchronous calls (e.g., `create_market_buy_order`). If the exchange takes 2 seconds to respond, the entire server "freezes." During high volatility, this could cause you to miss subsequent webhooks or experience significant slippage. **Correction: Must use `ccxt.pro` or the `async` version of CCXT.**
-2.  **Lack of Idempotency**: If TradingView sends the same webhook twice (a common occurrence due to network retries), this code will execute the trade twice. There is no logic to check if an order for that specific signal timestamp has already been processed.
-3.  **No Position Awareness**: The `execute_order` logic is currently "blind." It doesn't check if you already have a position open before trying to buy more or exit. In real trading, you need to know your current state to avoid "doubling up" or failing to close a position.
-4.  **Incomplete Error Handling**: If the exchange returns a `RateLimitExceeded` or `InsufficientFunds` error, the current code just logs a message and stops. There is no mechanism to retry the order or alert you immediately via another channel (like Telegram).
-5.  **Race Conditions**: Without a task queue (like Redis/Celery mentioned in your `AI_STANDARDS.md`), multiple webhooks arriving at the same millisecond could lead to conflicting orders being sent to the exchange simultaneously.
-
-**Verdict:** The current code is a helpful "sketch" for understanding the flow, but it is **not safe for real money** as it lacks the robustness required for automated execution.
 
 ## Logging Module
 
