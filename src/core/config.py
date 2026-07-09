@@ -1,1 +1,31 @@
-# Pydantic models for incoming JSON payloads
+import os
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import SecretStr
+
+class Settings(BaseSettings):
+    """
+    Application configuration via environment variables.
+    """
+    # Security token used to validate incoming webhooks.
+    WEBHOOK_PASSPHRASE: SecretStr
+    
+    # Exchange configuration
+    EXCHANGE_ID: str = "binance"
+    API_KEY: str = ""
+    API_SECRET: SecretStr = SecretStr("")
+    
+    # If True, use the exchange's testnet/sandbox environment.
+    PAPER_TRADING: bool = True
+    
+    # Redis configuration for ARQ
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
+
+# Singleton instance
+settings = Settings()

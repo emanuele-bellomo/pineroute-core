@@ -2,7 +2,7 @@
 
 - [ ] **Phase 1: Research & Setup**
     - [x] Initialize Project Structure
-    - [ ] Start Coding (after module 31)
+    - [ ] Start Coding 
     - [ ] Study Python Libraries
 - [ ] **Phase 2: Webhook Server**
     - [ ] Implement endpoint to receive TradingView alerts
@@ -20,48 +20,9 @@
 
 ## Tech Stack
 
-- **Frontend** = Astro, Tailwind CSS (not open-source)
-- **Backend (this repo)** = Python, C (optional), Rust (optional)
+- **Frontend** = Svelte, Tailwind CSS (not open-source)
+- **Backend (this repo)** = Python
 - **Database** = PostgreSQL
-
-
-## Rust usage
-
-To introduce Rust into PineRoute to bulletproof the system, there are two primary paths: using Rust as a C-extension replacement inside Python, or using Rust as a standalone microservice.
-
-1. **The Interop Bridge, PyO3**:
-   If you want to write Rust code and call it directly from your Python workers, you will use a framework called PyO3.
-   PyO3 allows you to write native Rust functions, compile them, and import them into Python exactly as if they were standard Python modules (import my_rust_module). The overhead of passing data between the two is nanoseconds. This is exactly how tools like Polars and Pydantic v2 are built.
-
-2. **Where to Inject Rust in PineRoute**: 
-
-   - The "Iron Shield" Ingestion Gateway (Standalone Microservice): Right now, you are using FastAPI and Uvicorn to catch the TradingView webhooks and dump them into Redis. While FastAPI is great, Python web servers can struggle under sudden, massive DDOS-style spikes in traffic (which happens in crypto during flash crashes).
-   The Rust Play: Replace just the FastAPI ingestion layer with a lightweight Rust web server using the Axum or Actix-Web framework.
-   Why? A Rust server can handle tens of thousands of concurrent webhook requests per second with practically zero memory footprint. It will instantly validate the JSON, dump it into your Redis queue, and return a 202 Accepted to TradingView in microseconds. Your Python workers then peacefully pull from Redis without ever touching the public internet.
-   - Cryptographic Validation (PyO3 module):
-   You mentioned handling "cryptographic user token validation." Python's cryptography libraries are fine, but if you have workers constantly decrypting tokens or signing complex exchange payloads, this CPU-bound work blocks Python's async event loop.
-   The Rust Play: Write a small Rust module via PyO3 that handles the heavy math of token decryption and signature hashing. Your Python worker hands the token to Rust, Rust does the math instantly on a separate OS thread, and hands the validated result back to Python.
-   - Future-Proofing: Real-time Data & Orderbooks
-   Right now, PineRoute is a webhook-to-execution pipeline. But if you ever decide to expand PineRoute to maintain local orderbooks via Exchange WebSockets to check prices before routing orders, do not do this in Python.
-   The Rust Play: Managing high-frequency WebSocket streams and maintaining localized orderbook state will crush Python's memory. That is a textbook use case for a Rust module.
-
-3. **Where to LEAVE Python Alone**:
-   Just as important as knowing where to use Rust is knowing where not to use it.
-   Do not touch the CCXT / Worker execution layer. CCXT is a massive, constantly updated library that normalizes the APIs of hundreds of crypto exchanges. The exchanges change their endpoints constantly. Rebuilding CCXT's functionality in Rust would take you years. Let your Python async workers handle the API routing using CCXT. Python is perfectly fine here because this step is I/O bound (waiting for the exchange server to respond over the network), not CPU bound.
-   The Verdict
-   Your tech stack is incredibly solid. By keeping Python as the "steering wheel" for routing (CCXT) and task management (Celery/ARQ), you maintain development speed. By potentially swapping the FastAPI gateway for a Rust microservice, you build an impenetrable, high-performance moat around your database and workers.
-   Since you are dealing with real-time trading, are you expecting user volume high enough that you anticipate facing severe rate-limit bottlenecks from the crypto exchanges, or is your main concern just processing the TradingView webhooks fast enough?
-
-
-## C usage
-
-**Advanced Risk Management (VaR Calculations)**: If you eventually let users set complex parameters—like "Do not execute this trade if my portfolio's Value at Risk (VaR) is above 5%"—your engine will have to pull their entire portfolio history and run Monte Carlo simulations in real-time before executing the webhook. Python will choke on this. C will do it instantly.
-
-**High-Frequency Order Book Analysis**: If you move beyond simple TradingView webhooks and start ingesting live WebSocket data from Binance to check order book depth before routing a trade, you will be processing thousands of events per second. C is perfect for parsing this firehose of data.
-
-**Custom Cryptography**: Encrypting and decrypting user API keys from the Postgres database needs to be fast and secure. While Python has libraries for this, writing a highly optimized C extension to handle the cryptographic keys in memory is a massive security and performance upgrade.
-
-Use libraries like Cython to get C-level performance without writing in C; also use uvloop instead of asyncio and orjson instead of json libraries for more speed.
 
 
 ## Useful GitHub repos ("State of the art" analysis)

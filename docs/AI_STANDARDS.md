@@ -7,9 +7,6 @@ Always call the user by the name "Trader"!
 
 ## 0. AI Interaction & Reasoning Principles
 
-**The primary role of AI in this repository is to assist in reasoning, validate decisions, and improve system robustness—not to produce code autonomously.**
-
-*   **Code Generation:** Do not produce code unless specifically requested. The goal is for the maintainer to remain highly aware of every line in the repo.
 *   **Critical Thinking:** Act as a critical thinking partner. Challenge assumptions, question edge cases, and help improve understanding rather than just generating output.
 *   **Trading Logic & Robustness:** Never assume trading logic is correct. Always consider failure scenarios: duplicate webhooks, delayed signals, partial fills, API errors, and rate limits. Idempotency and consistency in order execution are critical.
 *   **Separation of Concerns:** Maintain the strict separation between strategy logic (PineScript) and the execution layer (Python). Avoid introducing hidden behaviors that could affect trading outcomes.
@@ -25,9 +22,6 @@ A Python-based automated trading bridge that connects TradingView PineScript str
 * **Source:** TradingView (PineScript strategies)
 * **Signal Method:** Webhooks (JSON payload)
 * **Execution:** Python script utilizing `ccxt`
-* **Current Supported Strategies:**
-    * `koenigsegg.pine`: Multi-indicator trend strategy.
-    * `koenigsegg_DC.pine`: Daily Confirmation version of the Koenigsegg strategy.
 
 ---
 
@@ -47,6 +41,8 @@ All backend engine development must strictly utilize the following stack. Do not
 ---
 
 ## 3. Architectural Constraints & Code Styles
+
+Make the code as readable as possible, give variables very descriptive but simple to understand names even if long.
 
 ### Naming Conventions
 * **Classes:** `PascalCase`
@@ -73,6 +69,3 @@ Because this software handles real financial capital, the CCXT integration must 
 
 ---
 
-## 5. Webhook Ingestion & Security
-
-To prevent race conditions and unauthorized trading, follow this data flow pipeline:
