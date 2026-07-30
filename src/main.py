@@ -8,13 +8,14 @@ from arq.connections import RedisSettings
 from core.config import settings
 from api.webhooks import router as webhooks_router
 
+
 def setup_logging():
     """
     Configure loguru to act as the central logger.
     """
     # Remove default handler
     logger.remove()
-    
+
     # Add a custom handler with detailed formatting
     logger.add(sys.stdout,
         format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | "
@@ -22,6 +23,7 @@ def setup_logging():
         level="INFO",
         colorize=True
     )
+
 
 # Initialize application
 setup_logging()
@@ -38,9 +40,9 @@ async def lifespan(fastapi_app: FastAPI):
     )
     fastapi_app.state.redis = await create_pool(redis_settings)
     logger.info("Redis connection pool created")
-    
+
     yield  # App runs here
-    
+
     # --- Shutdown ---
     logger.info("PineRoute Bridge is shutting down...")
     if hasattr(fastapi_app.state, "redis"):

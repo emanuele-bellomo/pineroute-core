@@ -23,14 +23,14 @@ class ExchangeManager:
         """
         if not hasattr(ccxt, self.exchange_id):
             raise ExchangeConnectionError(f"Exchange {self.exchange_id} not supported by CCXT")
-        
+
         exchange_class = getattr(ccxt, self.exchange_id)
         self.exchange = exchange_class({
             'apiKey': self.api_key,
             'secret': self.api_secret,
             'enableRateLimit': True, # Required by most exchanges
         })
-        
+
         if self.paper_trading:
             if 'test' in self.exchange.urls:
                 self.exchange.set_sandbox_mode(True)
@@ -56,33 +56,33 @@ class ExchangeManager:
 
         try:
             logger.info(f"Preparing to execute {action.upper()} order for {symbol}")
-            
-            # This is a simplified market order logic. 
+
+            # This is a simplified market order logic.
             # In a full implementation, you'd check open positions first.
-            
+
             if action.lower() in ['buy', 'long']:
                 if not amount:
                     raise OrderExecutionError("Amount is required for buy/long orders")
                 # order = await self.exchange.create_market_buy_order(symbol, amount)
                 logger.info(f"Executed BUY order for {symbol} of amount {amount}")
                 return {"status": "success", "action": "buy", "symbol": symbol, "amount": amount}
-            
+
             elif action.lower() in ['sell', 'short']:
                 if not amount:
                     raise OrderExecutionError("Amount is required for sell/short orders")
                 # order = await self.exchange.create_market_sell_order(symbol, amount)
                 logger.info(f"Executed SELL order for {symbol} of amount {amount}")
                 return {"status": "success", "action": "sell", "symbol": symbol, "amount": amount}
-            
+
             elif action.lower() in ['exit', 'cash', 'close']:
                 logger.info(f"Executed EXIT order for {symbol}")
                 # We would fetch open positions for the symbol and close them here
                 return {"status": "success", "action": "exit", "symbol": symbol}
-            
+
             else:
                 logger.error(f"Unknown action: {action}")
                 raise OrderExecutionError(f"Unknown action: {action}")
-                
+
         except ccxt.RateLimitExceeded as e:
             logger.error(f"Rate limit exceeded on {self.exchange_id}: {e}")
             raise OrderExecutionError(f"RateLimitExceeded: {e}")
