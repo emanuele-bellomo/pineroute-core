@@ -9,14 +9,11 @@ from core.config import settings
 from api.webhooks import router as webhooks_router
 
 
+# Making a custom logger setup
 def setup_logging():
-    """
-    Configure loguru to act as the central logger.
-    """
-    # Remove default handler
-    logger.remove()
+    """Loguru's logger custom configuration."""
+    logger.remove() # Remove the standard one
 
-    # Add a custom handler with detailed formatting
     logger.add(sys.stdout,
         format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | "
                "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
@@ -24,14 +21,14 @@ def setup_logging():
         colorize=True
     )
 
-
-# Initialize application
 setup_logging()
-
 
 @asynccontextmanager
 async def lifespan(fastapi_app: FastAPI):
-    # --- Startup ---
+    """
+    FastAPI's modern "lifespan" pattern. Creates an ARQ Redis pool and stores it on "app.state.redis".
+    """
+    # Startup
     logger.info("PineRoute Bridge is starting up...")
     # Initialize ARQ Redis Pool
     redis_settings = RedisSettings(
@@ -43,7 +40,7 @@ async def lifespan(fastapi_app: FastAPI):
 
     yield  # App runs here
 
-    # --- Shutdown ---
+    # Shutdown
     logger.info("PineRoute Bridge is shutting down...")
     if hasattr(fastapi_app.state, "redis"):
         await fastapi_app.state.redis.aclose()
