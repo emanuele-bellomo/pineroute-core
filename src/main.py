@@ -5,8 +5,8 @@ from loguru import logger
 from arq import create_pool
 from arq.connections import RedisSettings
 
-from core.config import settings
-from api.webhooks import router as webhooks_router
+from src.core.config import settings
+from src.api.webhooks import router as webhooks_router
 
 
 # Making a custom logger setup
@@ -60,3 +60,12 @@ app.include_router(webhooks_router, prefix="/api")
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy"}
+
+
+if __name__ == "__main__":
+    # Allows launching the web server with `python -m src.main` from the
+    # project root. The equivalent explicit command is
+    # `uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload`.
+    import uvicorn
+
+    uvicorn.run("src.main:app", host="0.0.0.0", port=8000, reload=True)

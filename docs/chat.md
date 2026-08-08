@@ -513,4 +513,3 @@ async def execute_trading_signal(ctx: Dict[str, Any], payload: Dict[str, Any]) -
 ### Summary
 
 The design (FastAPI → Pydantic validation → Redis idempotency → ARQ queue → ccxt worker) is solid and follows good practice for decoupling a fast webhook receiver from slow exchange calls. The concrete problems are mostly **incomplete wiring and stale docs** rather than deep logic bugs: there's no way to launch the server as documented, the documented webhook URL is wrong, the import layout is fragile to how/where you run it, and the exchange calls are intentionally stubbed out pending "Phase 3" of the roadmap in `notes.md`.
-

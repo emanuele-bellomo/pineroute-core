@@ -2,7 +2,7 @@ import secrets
 
 from fastapi import HTTPException, Request, status
 from loguru import logger
-from core.config import settings
+from src.core.config import settings
 
 def verify_passphrase(passphrase: str, request: Request):
     """

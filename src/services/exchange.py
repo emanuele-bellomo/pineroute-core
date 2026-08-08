@@ -2,8 +2,8 @@ import ccxt.async_support as ccxt
 from loguru import logger
 from typing import Optional, Dict, Any
 
-from core.config import settings
-from core.exceptions import ExchangeConnectionError, OrderExecutionError
+from src.core.config import settings
+from src.core.exceptions import ExchangeConnectionError, OrderExecutionError
 
 class ExchangeManager:
     """
@@ -83,6 +83,10 @@ class ExchangeManager:
                 logger.error(f"Unknown action: {action}")
                 raise OrderExecutionError(f"Unknown action: {action}")
 
+        except OrderExecutionError:
+            # Our own validation errors (e.g. missing amount) are already
+            # well-formed; re-raise them without wrapping or dumping a traceback.
+            raise
         except ccxt.RateLimitExceeded as e:
             logger.error(f"Rate limit exceeded on {self.exchange_id}: {e}")
             raise OrderExecutionError(f"RateLimitExceeded: {e}")

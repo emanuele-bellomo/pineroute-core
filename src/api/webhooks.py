@@ -3,8 +3,8 @@ import hashlib
 from fastapi import APIRouter, HTTPException, Request, status
 from loguru import logger
 
-from models.schemas import WebhookPayload
-from api.dependencies import verify_passphrase
+from src.models.schemas import WebhookPayload
+from src.api.dependencies import verify_passphrase
 
 router = APIRouter()
 

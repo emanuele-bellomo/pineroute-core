@@ -1,10 +1,9 @@
 from typing import Dict, Any
 from loguru import logger
 from arq.connections import RedisSettings
-from redis.asyncio import Redis
 
-from core.config import settings
-from services.exchange import ExchangeManager
+from src.core.config import settings
+from src.services.exchange import ExchangeManager
 
 async def startup(ctx: Dict[str, Any]) -> None:
     """
@@ -32,16 +31,13 @@ async def shutdown(ctx: Dict[str, Any]) -> None:
 async def execute_trading_signal(ctx: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
     """
     Background task to execute a trading signal.
+
+    Idempotency (dropping duplicate deliveries of the same alert) is handled
+    upstream in `src/api/webhooks.py` via an atomic Redis `SET NX EX` before
+    the job is ever enqueued, so there is nothing to de-duplicate here.
     """
-    redis: Redis = ctx['redis']
     exchange_manager: ExchangeManager = ctx['exchange']
-    
-    # 1. Idempotency check: prevent duplicate signals from executing multiple times
-    # We can create a unique key based on the strategy, symbol, action, and current time window
-    # For a robust implementation, TradingView should send a unique ID, or we use a timestamp.
-    # Here, we use a basic approach just as an example.
-    # In production, we'd use a more precise unique identifier provided by the signal.
-    
+
     logger.info(f"Processing trading signal from queue: {payload}")
     
     try:
@@ -70,7 +66,7 @@ async def execute_trading_signal(ctx: Dict[str, Any], payload: Dict[str, Any]) -
 class WorkerSettings:
     """
     Settings for the ARQ worker.
-    To run the worker: `arq workers.queue.WorkerSettings`
+    To run the worker (from the project root): `arq src.workers.queue.WorkerSettings`
     """
     functions = [execute_trading_signal]
     redis_settings = RedisSettings(
