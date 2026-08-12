@@ -1,0 +1,250 @@
+//@version=6
+strategy("Koenigsegg Jesko Absolut Strategy", overlay=true, initial_capital=1000000, default_qty_type=strategy.percent_of_equity, default_qty_value=100, pyramiding=0, slippage=1, margin_long = 0, margin_short = 0, process_orders_on_close=true)
+import TradingView/ta/12
+import B_G_25/Backtesting/19 as metrics
+//Universal Metrics & Time
+startDate        = input.time(title='Start Date',defval=timestamp('01 Jan 2018 00:00'))
+inDateRange      = time >=startDate
+disp_ind         = input.string("None",title="Display Curve",options=["Strategy","Equity","Open Profit","Gross Profit","Net Profit","None"],group="🐍 𝓒𝓸𝓫𝓻𝓪 𝓜𝓮𝓽𝓻𝓲𝓬𝓼 🐍")
+pos_table        = input.string("Bottom Right","Table Position",options=["Top Left","Middle Left","Bottom Left","Top Right","Middle Right","Bottom Right","Top Center", "Bottom Center"],group="🐍 𝓒𝓸𝓫𝓻𝓪 𝓜𝓮𝓽𝓻𝓲𝓬𝓼 🐍")
+type_table       = input.string("Simple","Table Type",options=["Full","Simple","None"],group="🐍 𝓒𝓸𝓫𝓻𝓪 𝓜𝓮𝓽𝓻𝓲𝓬𝓼 🐍")
+plot(metrics.curve(disp_ind))
+metrics.backtestTable(type_table,pos_table)
+enableShorts     = input.bool(false,"Enable Shorting",group="Trade Settings")
+
+//1. ---- TSP Oscillator - Temporal Slope Proxy Oscillator | 𝕸𝖊𝖉𝖎𝖈 ----, link:https://www.tradingview.com/script/DDyHAaf0-TSP-Oscillator-Temporal-Slope-Proxy-Oscillator/, author:Medic_
+nSmooth          = input.int(42, "EMA Length")
+tspSmooth        = input.int(22,  "TSP EMA Length")
+tspDeltaSmooth   = input.int(25,  "TSP Delta EMA Length")
+minStrength      = input.float(1.7, "Min Trend Strength (normalized)", step = 0.1)
+momentumEMA      = input.int(4, "Momentum Envelope EMA Length")
+momentumThresh   = input.float(0.3, "Momentum Envelope Threshold", step = 0.1)
+emaSmooth        = ta.ema(close, nSmooth)
+emaSlope         = emaSmooth - emaSmooth[1]
+tspEma           = ta.ema(emaSlope, tspSmooth)
+tspDelta         = ta.ema(tspEma - nz(tspEma[1]), tspDeltaSmooth)
+volNorm          = ta.ema(math.abs(emaSlope), nSmooth)
+normSlope        = emaSlope / volNorm
+normSlopeEMA     = ta.ema(normSlope, momentumEMA)
+blMomentumFilt   = normSlope > normSlopeEMA + momentumThresh
+brMomentumFilt   = normSlope < normSlopeEMA - momentumThresh
+bullFilter       = tspEma > 0 and tspDelta > 0 and normSlope >= minStrength and blMomentumFilt
+bearFilter       = tspEma < 0 and tspDelta < 0 and normSlope <= -minStrength and brMomentumFilt
+float oscFiltered = na
+if bullFilter or bearFilter
+    oscFiltered := emaSlope
+else
+    oscFiltered := na
+var Med          = 0
+if bullFilter and not bearFilter
+    Med         := 1
+if bearFilter
+    Med         := -1
+
+//2. ---- G-FRAMA | QuantEdgeB ---- link:https://www.tradingview.com/script/jiEnK2xn-G-FRAMA-QuantEdgeB/, Author:BaseTrustCapital
+len_FG           = input.int(31, title = 'Gaussian length', minval = 1, group = 'Gaussian Filter', step = 1)
+src_FG           = input(close, title = 'Gaussian Source', group = 'Gaussian Filter')
+sigma_FG         = input.float(4.7, title = 'Gaussian Sigma', minval = 0.1, step = 0.1, group = 'Gaussian Filter')
+F_Gaussian(src, len_FG, sigma) =>
+    sum_G        = 0.0
+    weightedSum_G = 0.0
+    for i        = 0 to len_FG - 1 by 1
+        weight   = math.exp(-0.5 * math.pow((i - (len_FG - 1) / 2) / sigma, 2))
+        sum_G   += weight
+        weightedSum_G +=  src[i] * weight
+    Final_Gaussian = weightedSum_G / sum_G
+    Final_Gaussian
+filter_Gaussian  = F_Gaussian(src_FG, len_FG, sigma_FG)
+fm_len           = input(23, title = 'Base FRAMA length',group = "FRAMA Base")
+fm_UpperLimit    = input.int(7, minval = 1, title = 'Upper FRAMA Limit',group = "FRAMA Base")
+fm_LowerLimit    = input.int(40, minval = 1, title = 'Lower FRAMA Limit',group = "FRAMA Base")
+F_FRAMA(SRC, LEN1, LEN2, LEN3) =>
+    HL           = (ta.highest(high, LEN1) - ta.lowest(low, LEN1)) / LEN1
+    HL1          = (ta.highest(high, LEN1 / 2) - ta.lowest(low, LEN1 / 2)) / (LEN1 / 2)
+    HL2          = (ta.highest(high, LEN1 / 2)[LEN1 / 2] - ta.lowest(low, LEN1 / 2)[LEN1 / 2]) / (LEN1 / 2)
+    D            = (math.log(HL1 + HL2) - math.log(HL)) / math.log(2)
+    dim          = HL1 > 0 and HL2 > 0 and HL > 0 ? D : nz(D[1])
+    w            = math.log(2 / (LEN3 + 1))
+    alpha        = math.exp(w * (dim - 1))
+    alpha1       = alpha > 1 ? 1 : alpha < 0.01 ? 0.01 : alpha
+    oldN         = (2 - alpha1) / alpha1
+    newN         = (LEN3 - LEN2) * (oldN - 1) / (LEN3 - 1) + LEN2
+    newalpha     = 2 / (newN + 1)
+    newalpha1    = newalpha < 2 / (LEN3 + 1) ? 2 / (LEN3 + 1) : newalpha > 1 ? 1 : newalpha
+    frama        = 0.0
+    frama       := (1 - newalpha1) * nz(frama[1]) + newalpha1 * SRC
+    frama
+FRAMA            = F_FRAMA(filter_Gaussian, fm_len, fm_UpperLimit, fm_LowerLimit)
+len_ATR          = input.int(15, title = 'Atr length', minval = 1, step = 1, group = 'ATR')
+mult_ATR         = input.float(3.1, minval = 0, step = 0.1, title = 'ATR Mult', group = 'ATR')
+ATR              = ta.atr(len_ATR)
+filter_ATR       = ATR * mult_ATR
+LongV            = FRAMA + filter_ATR
+ShortV           = FRAMA - ATR
+Long_C           = close > LongV
+Short_C          = close < ShortV
+var QB           = 0
+if Long_C and not Short_C
+    QB          := 1
+    QB
+if Short_C
+    QB          := -1
+    QB
+
+//3. ---- ADX SuperTrend | RakoQuant ---- link:https://www.tradingview.com/script/gKVBlkQS-ADX-SuperTrend-RakoQuant/, Author:RakoQuant
+src              = input.source(high, "Source", group="group_core")
+baseLen          = input.int(3, "Baseline Length (EMA)", minval=1, group="group_core")
+atrLen           = input.int(19, "ATR Length", minval=1, group="group_core")
+adxLen           = input.int(7, "ADX Length", minval=1, group="group_mech")
+multBase         = input.float(2.5, "Base Multiplier", minval=0.1, step=0.1, group="group_mech")
+adxFloor         = input.float(2, "ADX Floor", minval=0.0, step=0.5, group="group_mech")
+adxCeil          = input.float(12.0, "ADX Ceiling", minval=1.0, step=0.5, group="group_mech")
+boostMax         = input.float(1.35, "Max Boost (xMult)", minval=1.0, step=0.05, group="group_mech")
+boostPow         = input.float(1, "Boost Power", minval=0.1, step=0.05, group="group_mech")
+momLen           = input.int(2, "Momentum Lookback", minval=1, group="group_mech")
+momGate          = input.float(0.2, "Momentum Gate (ATR units)", minval=0.0, step=0.01, group="group_mech")
+baseline         = ta.ema(src, baseLen)
+atr              = ta.atr(atrLen)
+[pdi, mdi, adx]  = ta.dmi(adxLen, adxLen)
+float denom      = (adxCeil - adxFloor)
+float tRaw       = denom != 0.0 ? (adx - adxFloor) / denom : 0.0
+float t          = math.max(math.min(tRaw, 1.0), 0.0)
+float scaleRaw   = 1.0 + (boostMax - 1.0) * math.pow(t, boostPow)
+float scale      = math.max(math.min(scaleRaw, boostMax), 1.0)
+effMult          = multBase * scale
+upperband        = baseline + effMult * atr
+lowerband        = baseline - effMult * atr
+prevupper        = nz(upperband[1])
+prevlower        = nz(lowerband[1])
+upperband       := upperband < prevupper or close[1] > prevupper ? upperband : prevupper
+lowerband       := lowerband > prevlower or close[1] < prevlower ? lowerband : prevlower
+mom              = baseline - baseline[momLen]
+momNorm          = atr != 0.0 ? mom / atr : 0.0
+int dir          = na
+float st         = na
+prevst           = nz(st[1])
+if na(baseline[1]) or na(atr[1])
+    dir         := 1
+else if prevst  == prevupper
+    dir         := (close > upperband and momNorm > momGate) ? -1 : 1
+else
+    dir         := (close < lowerband and momNorm < -momGate) ? 1 : -1
+st              := dir == -1 ? lowerband : upperband
+stBull           = dir < 0 ? st : na
+stBear           = dir > 0 ? st : na
+bullFlip         = dir < 0 and dir[1] > 0
+bearFlip         = dir > 0 and dir[1] < 0
+var Rako         = 0
+if bullFlip and not bearFlip
+    Rako        := 1
+if bearFlip
+    Rako        := -1
+
+//4. ---- For Loop THMA ~ CharonQuant ---- link:https://www.tradingview.com/script/g9pWFBzN-For-Loop-THMA-CharonQuant/, Author:CharonQuant
+len              = input.int(31,"THMA Length",minval=9,group="group_thma")
+src3             = input.source(hl2,"Source Price",group="group_thma")
+emaLen           = input.int(20, "Trend EMA Length",minval=20,maxval=200,group="group_trend")
+diLen            = input.int(9,"DI Length",minval=1,group="group_adx")
+adxSmooth        = input.int(14, "ADX Smoothing",minval=1,group="group_adx")
+adxThreshold     = input.int(27,"ADX Trend Threshold",minval=10,maxval=50,group="group_adx")
+use_weighted     = input.bool(false,"Weighted calculation",group="group_forloop")
+from             = input.int(3,"From number",group="group_forloop")
+to_              = input.int(30,"To number",group="group_forloop")
+bull_level       = input.float(25,"Long",group="group_forloop")
+bear_level       = input.float(-21,"Short",group="group_forloop")
+midline          = input.bool(false,"Midline signal",group="group_forloop")
+hma(src_, len_)  =>
+    wma1         = ta.wma(src_, math.floor(len_ / 2))
+    wma_full     = ta.wma(src_, len_)
+    wma_diff     = 2 * wma1 - wma_full
+    ta.wma(wma_diff, math.floor(math.sqrt(len_)))
+hma1             = hma(src3, len)
+hma2             = hma(hma1, len)
+hma3             = hma(hma2, len)
+thma             = 3 * hma1 - 3 * hma2 + hma3
+med1             = thma
+trendEma         = ta.ema(src3, emaLen)
+inUptrend        = src3 > trendEma
+inDowntrend      = src3 < trendEma
+[diPlus, diMinus, adx1] = ta.dmi(diLen, adxSmooth)
+trending         = adx1 > adxThreshold
+bullTrend        = diPlus > diMinus and trending
+bearTrend        = diMinus > diPlus and trending
+counter          = 0.0
+dividor(int i, bool use) =>
+    use ? i + 1 : 1
+for i            = from to to_
+    counter     := med1 > med1[i] ? counter + 1/dividor(i, use_weighted) : counter - 1/dividor(i, use_weighted)
+if use_weighted
+    counter     := (to_ - 1) * counter / ta.highest(math.abs(counter), 1000)
+if midline
+    bull_level  := 0.0
+    bear_level  := 0.0
+var trend        = true
+if counter       > bull_level
+    trend       := true
+if counter       < bear_level
+    trend       := false
+finalLong        = trend and inUptrend and bullTrend
+finalShort       = not trend and inDowntrend and bearTrend
+var CharonQuant  = 0
+if finalLong and not finalShort
+    CharonQuant := 1
+if finalShort
+    CharonQuant := -1
+
+//5. ---- 75th-25th Percentile Momentum | QuantumResearch ---- link:https://www.tradingview.com/script/IV6oHXfC-75th-25th-Percentile-Momentum-QuantumResearch/, Author:QuantumResearch
+source           = input.source(high,title = 'source', group = 'Percentile Parameters | 𝙌𝙪𝙖𝙣𝙩𝙪𝙢𝙍𝙚𝙨𝙚𝙖𝙧𝙘𝙝')
+length           = input.int(30,title = 'length', group = 'Percentile Parameters | 𝙌𝙪𝙖𝙣𝙩𝙪𝙢𝙍𝙚𝙨𝙚𝙖𝙧𝙘𝙝')
+length_atr       = input.int(19,title = 'length_atr', group = 'atr & mult Parameters | 𝙌𝙪𝙖𝙣𝙩𝙪𝙢𝙍𝙚𝙨𝙚𝙖𝙧𝙘𝙝')
+mult_75          = input.float(2.1,step=0.1,title = 'mult_75', group = 'atr & mult Parameters | 𝙌𝙪𝙖𝙣𝙩𝙪𝙢𝙍𝙚𝙨𝙚𝙖𝙧𝙘𝙝')
+mult_25          = input.float(2.5,step=0.1,title = 'mult_25', group = 'atr & mult Parameters | 𝙌𝙪𝙖𝙣𝙩𝙪𝙢𝙍𝙚𝙨𝙚𝙖𝙧𝙘𝙝')
+percentile_75    = ta.percentile_nearest_rank(source,length,75)
+percentile_25    = ta.percentile_nearest_rank(source,length,25)
+atrq             = ta.atr(length_atr)
+long             = close > percentile_75 + mult_75*atrq
+short            = close < percentile_25 - mult_25*atrq
+var Quantum      = 0
+if long and not short
+    Quantum     :=1
+    Quantum
+if short
+    Quantum     :=-1
+    Quantum
+lth = input.float(1.0,step=0.1)
+sth = input.float(0.0,step=0.1)
+
+//6. ---- PineRoute Webhook Alerts ---- builds the JSON payload src/models/schemas.py::WebhookPayload expects
+alertGroup       = "🔗 PineRoute Webhook"
+passphrase       = input.string("", title="Webhook Passphrase", group=alertGroup, tooltip="Must exactly match WEBHOOK_PASSPHRASE in your PineRoute .env file.")
+strategyTag      = input.string("koenigsegg", title="Strategy Name", group=alertGroup, tooltip="Sent as the 'strategy' field so PineRoute can identify this bot.")
+symbolOverride   = input.string("", title="Symbol Override (e.g. BTC/USDT)", group=alertGroup, tooltip="Leave blank to auto-derive BASE/QUOTE from the chart symbol.")
+pineRouteSymbol  = symbolOverride != "" ? symbolOverride : syminfo.basecurrency + "/" + syminfo.currency
+buildAlert(_action, _qty) =>
+    qtyField     = _qty > 0.0 ? ',"quantity":' + str.tostring(_qty) : ""
+    '{"passphrase":"' + passphrase + '","strategy":"' + strategyTag + '","action":"' + _action + '","symbol":"' + pineRouteSymbol + '","price":' + str.tostring(close) + qtyField + '}'
+//Thresholds & TPI scores
+THRESHOLD        = Med + QB + Rako + CharonQuant + Quantum
+TPI_l            = THRESHOLD > lth
+TPI_s            = THRESHOLD < sth
+var TPI          = 0
+if TPI_l
+    TPI         := 1
+else if TPI_s
+    TPI         := -1
+else
+    TPI         := 0
+
+//Conditions
+longCondition    = TPI == 1
+shortCondition   = TPI == -1
+if longCondition and inDateRange and barstate.isconfirmed
+    strategy.entry("Long", strategy.long, comment ="Long")
+    alert(buildAlert("buy", math.abs(strategy.position_size)), alert.freq_once_per_bar_close)
+if shortCondition and inDateRange and barstate.isconfirmed
+    if enableShorts
+        strategy.entry("Short", strategy.short, comment="Short")
+        alert(buildAlert("sell", math.abs(strategy.position_size)), alert.freq_once_per_bar_close)
+    else
+        strategy.close("Long", comment="Cash")
+        alert(buildAlert("cash", 0.0), alert.freq_once_per_bar_close)

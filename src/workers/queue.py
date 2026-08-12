@@ -4,6 +4,7 @@ from arq.connections import RedisSettings
 
 from src.core.config import settings
 from src.services.exchange import ExchangeManager
+from src.models.schemas import WebhookPayload
 
 async def startup(ctx: Dict[str, Any]) -> None:
     """
@@ -23,12 +24,12 @@ async def shutdown(ctx: Dict[str, Any]) -> None:
     Closes the exchange connection gracefully.
     """
     logger.info("Worker shutting down...")
-    exchange_manager: ExchangeManager = ctx.get('exchange')
+    exchange_manager: ExchangeManager | None = ctx.get('exchange')
     if exchange_manager:
         await exchange_manager.close_exchange()
     logger.info("Worker shutdown complete.")
 
-async def execute_trading_signal(ctx: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
+async def execute_trading_signal(ctx, payload: dict) -> dict:
     """
     Background task to execute a trading signal.
 
@@ -36,28 +37,24 @@ async def execute_trading_signal(ctx: Dict[str, Any], payload: Dict[str, Any]) -
     upstream in `src/api/webhooks.py` via an atomic Redis `SET NX EX` before
     the job is ever enqueued, so there is nothing to de-duplicate here.
     """
-    exchange_manager: ExchangeManager = ctx['exchange']
+    signal = WebhookPayload.model_validate({**payload, "passphrase": "-"})
+    exchange_manager: ExchangeManager = ctx.get('exchange')
 
     logger.info(f"Processing trading signal from queue: {payload}")
-    
+
     try:
-        # Assuming payload has these fields based on the schema
-        symbol = payload.get('symbol')
-        action = payload.get('action')
-        amount = payload.get('quantity')
-        price = payload.get('price')
-        
+
         # Execute the order via exchange manager
         result = await exchange_manager.execute_order(
-            symbol=symbol,
-            action=action,
-            amount=amount,
-            price=price
+            symbol=signal.symbol,
+            action=signal.action,
+            amount=signal.quantity,
+            price=signal.price
         )
-        
-        logger.info(f"Successfully processed signal for {symbol}: {result}")
+
+        logger.info(f"Successfully processed signal for {payload.get('symbol')}: {result}")
         return result
-        
+
     except Exception as e:
         logger.error(f"Error processing trading signal for {payload.get('symbol')}: {e}")
         # Raising an exception here lets ARQ handle retries if configured

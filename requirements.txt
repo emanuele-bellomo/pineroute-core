@@ -4,8 +4,9 @@ uvicorn
 pydantic
 pydantic-settings
 python-dotenv
-requests
-orjson
 loguru
 arq
-redis
+redis[hiredis]>=4.2,<6
+pytest
+pytest-asyncio
+httpx
